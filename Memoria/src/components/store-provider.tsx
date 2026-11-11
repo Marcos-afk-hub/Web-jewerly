@@ -53,7 +53,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
 
-  useEffect(() => {
+  // Se rehidrata desde localStorage. El estado se ajusta durante el render en
+  // lugar de un efecto para evitar renders en cascada (regla de React 19).
+  if (!hasHydrated && typeof window !== "undefined") {
     try {
       const stored = window.localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
@@ -64,7 +66,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       window.localStorage.removeItem(CART_STORAGE_KEY);
     }
     setHasHydrated(true);
-  }, []);
+  }
 
   useEffect(() => {
     if (!hasHydrated) return;

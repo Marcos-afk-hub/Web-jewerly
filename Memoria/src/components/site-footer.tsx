@@ -35,6 +35,7 @@ export function SiteFooter() {
         <div className="footer-links-column">
           <span className="footer-heading">Ayuda</span>
           <Link href="/nosotros">Quiénes somos</Link>
+          <Link href="/objetivos">Objetivos del proyecto</Link>
           <Link href="/contacto">Contacto</Link>
           <Link href="/ayuda#preguntas">Preguntas frecuentes</Link>
           <Link href="/ayuda#compras">Políticas de compra</Link>

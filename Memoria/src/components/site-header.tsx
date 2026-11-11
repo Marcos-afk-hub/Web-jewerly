@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useStore } from "@/components/store-provider";
 import { categories } from "@/lib/catalog-config";
 
@@ -11,6 +11,7 @@ const navLinks = [
   { href: "/memoria", label: "MEMORIA", accent: true },
   { href: "/memoria/personalizar", label: "Personalizar" },
   { href: "/nosotros", label: "Nosotros" },
+  { href: "/objetivos", label: "Objetivos" },
   { href: "/ayuda", label: "Ayuda" },
 ];
 
@@ -18,10 +19,6 @@ export function SiteHeader() {
   const { cartCount, openCart } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
 
   return (
     <>
@@ -31,7 +28,9 @@ export function SiteHeader() {
         <span>Nueva línea MEMORIA: joyería con fragmentos de tus prendas</span>
         <Link href="/rastrear" className="announcement-link">Rastrear pedido</Link>
       </div>
-      <header className="site-header">
+      {/* `key` en la ruta remonta el encabezado al navegar, lo que cierra el
+          menú móvil sin necesidad de un efecto que dispare un render en cascada. */}
+      <header className="site-header" key={pathname}>
         <div className="site-header__inner">
           <button
             type="button"
