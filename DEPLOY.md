@@ -186,6 +186,31 @@ El sitio ya está preparado para esto: cuando la base no responde, sirve el
 catálogo desde una copia en memoria y no se cae. El pedido, en cambio, sí
 necesita la base — para eso está el plan pagado, que no se suspende.
 
+### El cifrado TLS se negocia solo
+
+Neon exige TLS, pero un PostgreSQL local no lo admite. Por eso el pool de
+`src/db/index.ts` **sondea** el servidor al arrancar:
+
+1. Abre una conexión de comprobación con cifrado.
+2. Si el servidor la acepta, todo sigue con TLS (es el caso de Neon).
+3. Si el servidor dice que no admite SSL, el mismo pool se reconfigura sin
+   cifrado y el sitio continúa con normalidad.
+
+El sondeo se hace **una sola vez** y con una conexión aparte, que se cierra
+al terminar. Si alguna vez hay que forzar el modo sin cifrado:
+
+```bash
+# En .env.local o en las variables de Vercel
+DISABLE_DB_SSL=1
+```
+
+También funciona añadir `sslmode=disable` al final de la `DATABASE_URL`.
+
+> La negociación se hace **reconfigurando** el pool existente, nunca
+> sustituyéndolo. Si se creara un pool nuevo, las instancias de Drizzle ya
+> importadas quedarían apuntando al pool anterior y toda consulta fallaría
+> con `Cannot use a pool after calling end on the pool`.
+
 ### Si el build falla al aplicar el esquema
 
 `npm run db:migrate` no destruye datos y se puede volver a ejecutar. Si

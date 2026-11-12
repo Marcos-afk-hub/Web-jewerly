@@ -1,5 +1,5 @@
 import { asc, avg, count, desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
+import { checkDatabase, db } from "@/db";
 import { products, reviews } from "@/db/schema";
 import type { ProductCustomization, ProductVariantGroup } from "@/db/schema";
 import { stockPhoto } from "@/lib/catalog-config";
@@ -674,9 +674,20 @@ const reviewSeeds = [
 
 let seedPromise: Promise<void> | undefined;
 
+/**
+ * Siembra el catálogo y las reseñas en la base de datos.
+ *
+ * La promesa se cachea para no repetir el insert en cada visita, pero si
+ * falla (por ejemplo, porque la base estaba suspendida) se descarta el caché
+ * para que el siguiente intento vuelva a intentarlo.
+ */
 export async function ensureCatalogSeeded() {
   if (!seedPromise) {
     seedPromise = (async () => {
+      // Se comprueba la conexión antes de escribir. Si el servidor no admite
+      // TLS, `checkDatabase` reconfigura el pool y a partir de ahí todas las
+      // consultas funcionan con normalidad.
+      await checkDatabase();
       await db.insert(products).values(productSeeds).onConflictDoNothing();
       const existing = await db.select({ id: products.id, slug: products.slug }).from(products);
       const idBySlug = new Map(existing.map((product) => [product.slug, product.id]));
