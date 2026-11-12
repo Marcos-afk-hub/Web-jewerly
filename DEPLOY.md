@@ -8,6 +8,26 @@ de correo.
 
 ---
 
+## Lo que falta
+
+Si ya creaste la base en Neon y ya importaste el proyecto en Vercel, quedan
+tres cosas:
+
+1. **Rotar la contraseña de la base.** Si la compartiste por chat, es
+   obligatoria: Neon → tu proyecto → *Roles* → rotar la contraseña. Después
+   actualiza `DATABASE_URL` en Vercel.
+2. **Agregar `ADMIN_PASSWORD`** en Vercel → Settings → Environment Variables.
+   Sin ella, `/admin` funciona con la contraseña de demostración
+   `hilomio-admin`, que sirve para pruebas pero no para producción.
+3. **Aplicar el esquema y sembrar el catálogo**, si el build no lo hizo:
+
+   ```bash
+   DATABASE_URL="postgresql://..." npm run db:migrate
+   DATABASE_URL="postgresql://..." npm run db:seed
+   ```
+
+---
+
 ## Cómo funciona
 
 ```
@@ -120,6 +140,73 @@ https://hilomio-memoria.vercel.app
 ```
 
 Ábrelo. Si aparece el catálogo con productos y fotos, **ya está en internet**.
+
+---
+
+## Notas sobre Neon
+
+### La cadena de conexión
+
+Neon entrega el formato de pooler con la contraseña entre corchetes:
+
+```
+postgresql://neondb_owner:[npg_TU_CLAVE_AQUI]@ep-xxxx-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require
+```
+
+Eso **sí** es un formato válido para `pg`. Solo asegúrate de que al copiarla
+no se cuele el markdown de una tabla (el texto `](mailto:...)` que aparece
+cuando copias desde una celda de GitHub o Notion): si lo lleva, la contraseña
+queda mal y la conexión falla.
+
+### Dos tipos de cadena
+
+Neon ofrece dos hosts:
+
+| Host | Para qué |
+|---|---|
+| `ep-xxx.us-east-2.aws.neon.tech` | Conexiones directas. Úsala para migraciones. |
+| `ep-xxx-pooler.c-9.us-east-2.aws.neon.tech` | Pool de conexiones. Úsala para la aplicación. |
+
+La que trae el panel (con `-pooler`) es la adecuada para `DATABASE_URL`.
+
+### La base se llama `neondb`
+
+Es la base que crea Neon por defecto. Funciona, pero si prefieres un nombre
+propio puedes crear otra en el panel (*Databases → Create*) y apuntar ahí.
+
+### La base se suspende
+
+El plan gratuito apaga la base tras 5 minutos sin actividad. Dos
+consecuencias:
+
+1. **La primera visita tarda unos segundos.** Normal.
+2. **Si alguien compra justo mientras está despertando**, puede fallar.
+
+El sitio ya está preparado para esto: cuando la base no responde, sirve el
+catálogo desde una copia en memoria y no se cae. El pedido, en cambio, sí
+necesita la base — para eso está el plan pagado, que no se suspende.
+
+### Si el build falla al aplicar el esquema
+
+`npm run db:migrate` no destruye datos y se puede volver a ejecutar. Si
+Vercel no alcanza la base desde su red de build, el despliegue se pone rojo;
+en ese caso:
+
+```bash
+# Aplica el esquema desde tu máquina, contra Neon
+DATABASE_URL="postgresql://..." npm run db:migrate
+DATABASE_URL="postgresql://..." npm run db:seed
+```
+
+Y vuelve a desplegar. El esquema queda aplicado y el build pasa de largo.
+
+### Verifica que todo quedó bien
+
+```bash
+curl -s https://tu-sitio.vercel.app/api/health
+```
+
+Debe responder `{"ok":true}`.
 
 ---
 
