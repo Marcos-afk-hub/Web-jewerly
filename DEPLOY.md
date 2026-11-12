@@ -98,14 +98,13 @@ Si no hay errores, tu base de datos está lista.
 
 1. Entra en <https://vercel.com/signup> y crea una cuenta (puedes usar GitHub).
 2. **Add New… → Project** e importa el repositorio `Marcos-afk-hub/Web-jewerly`.
-3. Cuando pregunte por el **Root Directory**, escribe:
+3. Cuando pregunte por el **Root Directory**, **déjalo vacío**.
 
-   ```
-   Memoria
-   ```
-
-   > Es importante: la app de Next.js vive en `Memoria/`, no en la raíz del
-   > repositorio.
+   > La app de Next.js vive en `Memoria/`, pero el repositorio incluye un
+   > `vercel.json` en la raíz que declara `"rootDirectory": "Memoria"`. Vercel
+   > lo lee automáticamente, así que no hay que configurar nada a mano.
+   > Si lo rellenas con `Memoria`, la ruta se duplica (`Memoria/Memoria`) y el
+   > build falla.
 
 4. En **Framework Preset** deja **Next.js** y el detector automático de
    dependencias.
@@ -124,6 +123,13 @@ En el paso de **Environment Variables** agrega:
 > **Ojo con `NEXT_PUBLIC_*`:** esas variables se incrustan en el JavaScript que
 > se envía al navegador. Nunca pongas ahí una contraseña. `ADMIN_PASSWORD` y
 > `DATABASE_URL` no llevan el prefijo, así que se quedan en el servidor.
+
+> **Las variables hay que ponerlas en los tres entornos.** En el panel de
+> Vercel, arriba del editor de variables, hay un desplegable con
+> *Production*, *Preview* y *Development*. Si `DATABASE_URL` solo está en
+> *Production*, el despliegue de vista previa de un PR se construye sin ella.
+> El sitio se publica igual (el catálogo tiene una copia en memoria), pero
+> conviene tenerla en los tres para que las pruebas se parezcan a producción.
 
 ### 2.3 Desplegar
 
@@ -334,11 +340,47 @@ pg_dump "$DATABASE_URL" > respaldo-$(date +%Y-%m-%d).sql
 
 ## Problemas frecuentes
 
+### Cómo leer el log de un build fallido en Vercel
+
+Es el primer paso cuando el check de GitHub sale en rojo:
+
+1. Abre el panel de Vercel → pestaña **Deployments**.
+2. El deployment fallido es el de arriba. Ábrelo.
+3. En la derecha, busca **Build Logs** (hay que activar **Function Logs** si
+   quieres ver los logs de las funciones).
+4. Copia las líneas en rojo, sobre todo las que dicen `Error:`.
+
+Si prefieres la terminal, cada deployment da su comando exacto en la pestaña
+**Checks** de GitHub:
+
+```bash
+npx vercel inspect dpl_XXXXXXXX --logs
+```
+
+### El build falla y el log dice que no encuentra `package.json`
+
+El **Root Directory** del proyecto en Vercel debe estar **vacío**. El
+repositorio ya incluye un `vercel.json` en la raíz que declara
+`"rootDirectory": "Memoria"`. Si en el panel escribes `Memoria`, la ruta se
+duplica (`Memoria/Memoria`) y Vercel no encuentra nada.
+
+### Aparecen dos deployments en cada push
+
+Es que hay **dos proyectos de Vercel** conectados al mismo repositorio
+(por ejemplo `web-jewerly` y `web-jewerly-9n9g`). En
+**Settings → Git** de cada proyecto puedes desconectar el que no uses, o en
+**Project Settings** revisar que los dos apunten al mismo repositorio con
+la misma configuración. Con un solo proyecto hay un solo deployment.
+
 ### «DATABASE_URL es obligatoria»
 
 La variable no llegó al entorno de Vercel. Revisa que la hayas agregado en
 **Settings → Environment Variables** para los tres entornos (Production,
 Preview, Development), y recuerda que las variables se leen al desplegar.
+
+> Si el mensaje sale **durante el build**, casi siempre es que la variable
+> solo está en *Production* y el deployment de vista previa del PR se
+> construye sin ella. Agrégala también en *Preview* y *Development*.
 
 ### «Invalid src prop … hostname is not configured»
 
