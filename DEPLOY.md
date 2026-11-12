@@ -362,6 +362,27 @@ Si prefieres la terminal, cada deployment da su comando exacto en la pestaña
 npx vercel inspect dpl_XXXXXXXX --logs
 ```
 
+### «ERR_INVALID_URL» o «Failed to collect page data for /_not-found»
+
+La variable `NEXT_PUBLIC_SITE_URL` tiene un valor que no es una URL. Lo más
+común es que en el panel de Vercel se haya copiado el texto de ejemplo tal
+cual:
+
+```
+La URL que te asigne Vercel
+```
+
+El sitio ya no se rompe por eso: la URL se valida y, si no es válida, se usa
+una de reserva. Pero **conviene corregirla** en
+*Settings → Environment Variables*, porque de ahí salen las URLs del sitemap,
+de `robots.txt` y las etiquetas para compartir en redes.
+
+El formato correcto es el dominio completo, sin barra final:
+
+```
+https://tu-sitio.vercel.app
+```
+
 ### El build falla y el log dice que no encuentra `package.json`
 
 El **Root Directory** del proyecto en Vercel debe estar **vacío**. El
