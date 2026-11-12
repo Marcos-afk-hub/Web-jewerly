@@ -704,6 +704,57 @@ export async function ensureCatalogSeeded() {
   await seedPromise;
 }
 
+/**
+ * Catálogo de respaldo, construido en memoria a partir de las semillas.
+ *
+ * Las bases de datos gestionadas en plan gratuito se suspenden tras unos
+ * minutos de inactividad y tardan un momento en volver a despertar. Si eso
+ * pasara justo cuando alguien visita el catálogo, la página no debe
+ * devolver un error 500: se sirve el catálogo desde la semilla y el sitio
+ * sigue siendo utilizable.
+ *
+ * Es también el respaldo que evita que un fallo de red tumbe la tienda.
+ */
+function buildFallbackCatalog(): Product[] {
+  const summaryBySlug = new Map<string, { rating: number; reviewCount: number }>();
+  for (const review of reviewSeeds) {
+    const current = summaryBySlug.get(review.slug);
+    const count = (current?.reviewCount ?? 0) + 1;
+    const total = (current?.rating ?? 0) * (current?.reviewCount ?? 0) + review.rating;
+    summaryBySlug.set(review.slug, { rating: total / count, reviewCount: count });
+  }
+
+  return productSeeds.map((seed, index) => {
+    const summary = summaryBySlug.get(seed.slug);
+    return {
+      id: index + 1,
+      slug: seed.slug,
+      name: seed.name,
+      category: seed.category,
+      line: seed.line,
+      collectionName: seed.collectionName,
+      shortDescription: seed.shortDescription,
+      description: seed.description,
+      story: seed.story,
+      images: seed.images,
+      price: seed.price,
+      compareAtPrice: seed.compareAtPrice,
+      badge: seed.badge,
+      materials: seed.materials,
+      materialKey: seed.materialKey,
+      style: seed.style,
+      features: seed.features,
+      variants: seed.variants,
+      customization: seed.customization,
+      stock: seed.stock,
+      leadTime: seed.leadTime,
+      featured: seed.featured,
+      rating: summary ? Number(summary.rating.toFixed(1)) : 0,
+      reviewCount: summary?.reviewCount ?? 0,
+    };
+  });
+}
+
 type Summary = { productId: number; rating: string | null; reviewCount: number };
 
 function mapProducts(rows: (typeof products.$inferSelect)[], summaries: Summary[]): Product[] {
@@ -747,12 +798,20 @@ async function getReviewSummaries(): Promise<Summary[]> {
 }
 
 export async function getCatalog() {
-  await ensureCatalogSeeded();
-  const [rows, summaries] = await Promise.all([
-    db.select().from(products).orderBy(asc(products.id)),
-    getReviewSummaries(),
-  ]);
-  return mapProducts(rows, summaries);
+  try {
+    await ensureCatalogSeeded();
+    const [rows, summaries] = await Promise.all([
+      db.select().from(products).orderBy(asc(products.id)),
+      getReviewSummaries(),
+    ]);
+    return mapProducts(rows, summaries);
+  } catch (error) {
+    // La base no respondió (se acaba de suspender, o hay un problema de
+    // red). Se sirve el catálogo desde la semilla para que la página siga
+    // disponible en lugar de devolver un error.
+    console.error("No se pudo leer el catálogo de la base de datos:", error);
+    return buildFallbackCatalog();
+  }
 }
 
 export async function getFeaturedProducts(limit = 8) {
@@ -766,13 +825,18 @@ export async function getMemoriaProducts() {
 }
 
 export async function getProductBySlug(slug: string) {
-  await ensureCatalogSeeded();
-  const [rows, summaries] = await Promise.all([
-    db.select().from(products).where(eq(products.slug, slug)).limit(1),
-    getReviewSummaries(),
-  ]);
-  if (!rows[0]) return null;
-  return mapProducts(rows, summaries)[0] ?? null;
+  try {
+    await ensureCatalogSeeded();
+    const [rows, summaries] = await Promise.all([
+      db.select().from(products).where(eq(products.slug, slug)).limit(1),
+      getReviewSummaries(),
+    ]);
+    if (!rows[0]) return null;
+    return mapProducts(rows, summaries)[0] ?? null;
+  } catch (error) {
+    console.error("No se pudo leer el producto de la base de datos:", error);
+    return buildFallbackCatalog().find((product) => product.slug === slug) ?? null;
+  }
 }
 
 export async function getProductsBySlugs(slugs: string[]) {
@@ -794,18 +858,47 @@ function mapReview(review: typeof reviews.$inferSelect): Review {
 }
 
 export async function getProductReviews(productId: number): Promise<Review[]> {
-  await ensureCatalogSeeded();
-  const rows = await db.select().from(reviews).where(eq(reviews.productId, productId)).orderBy(desc(reviews.createdAt));
-  return rows.map(mapReview);
+  try {
+    await ensureCatalogSeeded();
+    const rows = await db.select().from(reviews).where(eq(reviews.productId, productId)).orderBy(desc(reviews.createdAt));
+    return rows.map(mapReview);
+  } catch (error) {
+    console.error("No se pudieron leer las reseñas del producto:", error);
+    return buildFallbackReviews(100).filter((review) => review.productSlug === productSeeds[productId - 1]?.slug);
+  }
 }
 
 export async function getRecentReviews(limit = 3): Promise<(Review & { productName: string; productSlug: string })[]> {
-  await ensureCatalogSeeded();
-  const rows = await db
-    .select({ review: reviews, productName: products.name, productSlug: products.slug })
-    .from(reviews)
-    .innerJoin(products, eq(products.id, reviews.productId))
-    .orderBy(desc(reviews.createdAt))
-    .limit(limit);
-  return rows.map((row) => ({ ...mapReview(row.review), productName: row.productName, productSlug: row.productSlug }));
+  try {
+    await ensureCatalogSeeded();
+    const rows = await db
+      .select({ review: reviews, productName: products.name, productSlug: products.slug })
+      .from(reviews)
+      .innerJoin(products, eq(products.id, reviews.productId))
+      .orderBy(desc(reviews.createdAt))
+      .limit(limit);
+    return rows.map((row) => ({ ...mapReview(row.review), productName: row.productName, productSlug: row.productSlug }));
+  } catch (error) {
+    console.error("No se pudieron leer las reseñas recientes:", error);
+    return buildFallbackReviews(limit);
+  }
+}
+
+/** Reseñas construidas en memoria a partir de las semillas. */
+function buildFallbackReviews(limit = 3): (Review & { productName: string; productSlug: string })[] {
+  const nameBySlug = new Map(productSeeds.map((product) => [product.slug, product.name]));
+  return [...reviewSeeds]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit)
+    .map((review, index) => ({
+      id: index + 1,
+      customerName: review.customerName,
+      location: review.location,
+      rating: review.rating,
+      title: review.title,
+      body: review.body,
+      date: new Date(`${review.date}T12:00:00.000Z`).toISOString(),
+      productName: nameBySlug.get(review.slug) ?? review.slug,
+      productSlug: review.slug,
+    }));
 }

@@ -162,6 +162,7 @@ async function main() {
     new Client({
       connectionString: databaseUrl,
       ssl: useSsl ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 20_000,
     });
 
   let activeClient = connect(!forceNoSsl);
@@ -170,10 +171,23 @@ async function main() {
     await activeClient.connect();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (forceNoSsl || !/does not support SSL/i.test(message)) throw error;
-    console.log("→ El servidor no admite TLS. Reintentando sin cifrado…");
-    activeClient = connect(false);
-    await activeClient.connect();
+    if (!forceNoSsl && /does not support SSL/i.test(message)) {
+      console.log("→ El servidor no admite TLS. Reintentando sin cifrado…");
+      activeClient = connect(false);
+      await activeClient.connect();
+    } else if (process.env.ALLOW_DB_MIGRATION_FAILURE === "1") {
+      // En Vercel, si la base no está alcanzable desde la red de build, es
+      // preferible publicar el sitio y aplicar el esquema desde otro lado
+      // (panel de Neon, un deploy manual o `npm run db:migrate` local) que
+      // dejar el despliegue entero en rojo.
+      console.warn(
+        "⚠ No se pudo conectar a la base de datos. Se continúa sin aplicar el esquema.",
+      );
+      console.warn(`  Motivo: ${message.split("\n")[0]}`);
+      process.exit(0);
+    } else {
+      throw error;
+    }
   }
 
   console.log("→ Aplicando esquema…");

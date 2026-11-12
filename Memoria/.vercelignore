@@ -1,0 +1,24 @@
+# Archivos que Vercel no necesita subir al build.
+# Vercel respeta el .gitignore, pero este archivo es explícito y evita que
+# archivos locales se desplieguen por error.
+
+node_modules
+.next
+out
+dist
+build
+coverage
+
+# Variables de entorno: nunca deben desplegarse.
+.env
+.env.local
+.env.*.local
+
+# Base de datos local embebida.
+.pgdata
+
+# Herramientas de desarrollo
+scripts/local-db.mts
+tsconfig.tsbuildinfo
+*.log
+.DS_Store
