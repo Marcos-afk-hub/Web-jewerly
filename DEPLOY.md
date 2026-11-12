@@ -1,0 +1,259 @@
+# Publicar el sitio en internet
+
+Guía paso a paso para poner **HILO MÍO · Memoria** en línea con Vercel y una
+base de datos PostgreSQL gestionada (Neon o Supabase).
+
+Tiempo estimado: **20–30 minutos**, la mayor parte esperando confirmaciones
+de correo.
+
+---
+
+## Cómo funciona
+
+```
+GitHub  ──push──▶  Vercel  ──build──▶  tu sitio (hilomio-memoria.vercel.app)
+                                       │
+                                       └──DATABASE_URL──▶  Neon / Supabase (PostgreSQL)
+```
+
+Cada `git push` a `main` dispara un despliegue nuevo. La base de datos vive
+fuera de Vercel, así que los datos sobreviven a los despliegues.
+
+---
+
+## Paso 1 · Publicar la base de datos
+
+### Opción A · Neon (recomendada)
+
+1. Entra en <https://console.neon.tech> y crea una cuenta.
+2. **Create a project** → nombre `hilomio-memoria` → región **Mexico (Central)** o
+   la más cercana.
+3. El plan **Free** incluye suficiente para la exposición: 0.5 GB de almacenamiento
+   y que se apaga sola tras 5 minutos de inactividad.
+4. Cuando termine, Neon te muestra la **Connection string**. Copia algo como:
+
+   ```
+   postgresql://usuario:contraseña@ep-nombre-123.us-east-2.aws.neon.tech/hilomio-memoria?sslmode=require
+   ```
+
+> **No compartas esta cadena.** Es la contraseña de tu base de datos.
+
+### Opción B · Supabase
+
+1. Entra en <https://supabase.com> y crea una cuenta.
+2. **New project** → nombre `hilomio-memoria` → elige una región cercana.
+3. Ve a **Settings → Database → Connection string → URI** y copia el valor.
+4. En el mismo panel puedes ver las tablas y los pedidos desde una interfaz
+   gráfica, sin tocar la terminal.
+
+### Verificar que funcionó
+
+Si instalaste las dependencias del proyecto, puedes comprobar la conexión:
+
+```bash
+cd Memoria
+cp .env.example .env.local
+```
+
+Abre `.env.local` y pega tu cadena de conexión:
+
+```env
+DATABASE_URL=postgresql://usuario:contraseña@ep-nombre-123.aws.neon.tech/hilomio-memoria?sslmode=require
+```
+
+Luego:
+
+```bash
+npm run db:migrate    # crea las tablas
+npm run db:seed       # llena el catálogo y las reseñas
+```
+
+Si no hay errores, tu base de datos está lista.
+
+---
+
+## Paso 2 · Publicar en Vercel
+
+### 2.1 Conectar el repositorio
+
+1. Entra en <https://vercel.com/signup> y crea una cuenta (puedes usar GitHub).
+2. **Add New… → Project** e importa el repositorio `Marcos-afk-hub/Web-jewerly`.
+3. Cuando pregunte por el **Root Directory**, escribe:
+
+   ```
+   Memoria
+   ```
+
+   > Es importante: la app de Next.js vive en `Memoria/`, no en la raíz del
+   > repositorio.
+
+4. En **Framework Preset** deja **Next.js** y el detector automático de
+   dependencias.
+
+### 2.2 Variables de entorno
+
+En el paso de **Environment Variables** agrega:
+
+| Nombre | Valor |
+|---|---|
+| `DATABASE_URL` | La cadena de conexión de tu base de datos |
+| `NEXT_PUBLIC_SITE_URL` | `https://tu-sitio.vercel.app` (lo puedes cambiar después) |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Tu número de WhatsApp: `5215512345678` |
+| `ADMIN_PASSWORD` | Una contraseña para el panel `/admin` |
+
+> **Ojo con `NEXT_PUBLIC_*`:** esas variables se incrustan en el JavaScript que
+> se envía al navegador. Nunca pongas ahí una contraseña. `ADMIN_PASSWORD` y
+> `DATABASE_URL` no llevan el prefijo, así que se quedan en el servidor.
+
+### 2.3 Desplegar
+
+Presiona **Deploy**. Vercel:
+
+1. Instala las dependencias.
+2. Ejecuta `npm run db:migrate` (crea las tablas) y `npm run build`.
+3. Publica el sitio.
+
+Tardará unos 2–4 minutos la primera vez. Cuando termine verás:
+
+```
+https://hilomio-memoria.vercel.app
+```
+
+Ábrelo. Si aparece el catálogo con productos y fotos, **ya está en internet**.
+
+---
+
+## Paso 3 · Conectar un dominio propio
+
+Si quieres una dirección como `hilomio.mx`:
+
+1. En Vercel: **Settings → Domains → Add**.
+2. Escribe tu dominio y presiona **Add**.
+3. Vercel te muestra los registros DNS que debes crear en tu registrador
+   (GoDaddy, Namecheap, DonDaddy…).
+
+   Si usas los DNS de Vercel, normalmente es:
+
+   | Tipo | Nombre | Valor |
+   |---|---|---|
+   | `A` | `@` | `76.76.21.21` |
+   | `CNAME` | `www` | `cname.vercel-dns.com` |
+
+4. Espera a que el dominio se propague (puede tardar de minutos a 24 horas).
+5. Vercel emite el certificado HTTPS automáticamente. No hay que hacer nada.
+
+Los dominios `.com.mx` se compran en Network Solutions o DonDaddy y cuestan
+alrededor de 400–700 MXN al año.
+
+---
+
+## Paso 4 · Después del primer despliegue
+
+### Verificar que todo funciona
+
+```bash
+curl -s https://tu-sitio.vercel.app/api/health
+```
+
+Debe responder `{"ok":true}`. Si responde `{"ok":false}`, la base de datos no
+está conectada: revisa `DATABASE_URL` en Vercel.
+
+### Cambiar el número de WhatsApp
+
+Todo el sitio usa `NEXT_PUBLIC_WHATSAPP_NUMBER`. Al cambiarla en Vercel hay
+que **re-desplegar** (Deployments → ⋯ → Redeploy) para que el valor viejo se
+actualice en el navegador.
+
+### Probar un pedido completo
+
+1. Entra al sitio, agrega una pieza al carrito y haz un pedido.
+2. Ve a Vercel → **Storage** (la base de Neon/Supabase) y confirma que
+   aparece en la tabla `orders`.
+3. Entra a `https://tu-sitio.vercel.app/admin`, escribe la contraseña de
+   `ADMIN_PASSWORD` y verás el pedido con su bitácora de estados.
+4. Compra una prenda MEMORIA para comprobar que el flujo de envío de la
+   prenda y el estado `pendiente_prenda` funcionan.
+
+---
+
+## Mantenimiento
+
+### Cada cambio de código
+
+```bash
+git add -A
+git commit -m "Descripción del cambio"
+git push origin main
+```
+
+Vercel despliega solo. Revisa el resultado en la pestaña **Deployments**.
+
+### Cambios en el esquema de la base
+
+Si modificas `src/db/schema.ts`:
+
+```bash
+# En local, para generar la migración
+npm run db:generate
+
+# Sube el .sql generado y el cambio del esquema
+git add .
+git commit -m "feat: agrega tabla de XYZ"
+git push origin main
+```
+
+> `npm run db:migrate` (el que corre Vercel) solo crea tablas y índices que
+> no existen. Nunca borra datos. Si agregas una columna nueva a una tabla
+> existente, hay que escribir esa sentencia a mano en `scripts/migrate.mts`.
+
+### Respaldo de la base
+
+- **Neon:** tiene respaldos automáticos en el plan gratuito; puedes descargarlos
+  desde el panel con `pg_dump`.
+- **Supabase:** respaldos automáticos diarios en el plan gratuito.
+
+Para un respaldo manual:
+
+```bash
+pg_dump "$DATABASE_URL" > respaldo-$(date +%Y-%m-%d).sql
+```
+
+---
+
+## Problemas frecuentes
+
+### «DATABASE_URL es obligatoria»
+
+La variable no llegó al entorno de Vercel. Revisa que la hayas agregado en
+**Settings → Environment Variables** para los tres entornos (Production,
+Preview, Development), y recuerda que las variables se leen al desplegar.
+
+### «Invalid src prop … hostname is not configured»
+
+Quedó alguna referencia a una imagen externa. Toda la fotografía debe estar
+en `public/images/`. Si agregas una fuente nueva, regístrala en
+`next.config.ts` → `images.remotePatterns`.
+
+### El sitio tarda en cargar la primera visita
+
+Neon apaga la base tras 5 minutos sin uso, y el primer visitante la despierta. Es
+normal en el plan gratuito. Para evitarlo, usa el plan pagado de Neon o
+configura la base para que no se suspenda.
+
+### «Error: Dynamic server usage» durante el build
+
+Alguna página que debería ser estática está pidiendo datos en tiempo de
+compilación. Agrégale `export const dynamic = "force-dynamic";` al principio
+del archivo de la página.
+
+---
+
+## Checklist antes de la exposición
+
+- [ ] `npm run lint && npm run typecheck && npm run build` sin errores
+- [ ] El sitio carga en menos de 3 segundos con conexión normal
+- [ ] Se ve bien en celular (pruébalo en el teléfono, no solo en la laptop)
+- [ ] El número de WhatsApp abre con el mensaje correcto
+- [ ] El panel `/admin` responde con la contraseña
+- [ ] Un pedido de prueba llega completo hasta el panel
+- [ ] Hay un respaldo de la base de datos descargado

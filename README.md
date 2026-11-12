@@ -127,6 +127,8 @@ npm run dev        # http://localhost:3000
 | `npm run db:generate` | Genera una migración nueva a partir del esquema. |
 | `npm run db:studio` | Abre Drizzle Studio para inspeccionar los datos. |
 | `npm run db:seed` | Siembra el catálogo de productos y reseñas. |
+| `npm run db:migrate` | Aplica el esquema sin destructividad. Es el que corre Vercel. |
+| `npm run db:migrate:images` | Reescribe las URLs de imagen guardadas a las rutas locales. |
 
 ---
 
@@ -260,6 +262,30 @@ Reglas:
   Los nombres de clase son `kebab-case` y siguen el patrón `bloque__elemento`.
 - **Imágenes**: la fotografía editorial vive en `public/images/`; las fotos de
   stock de producto se referencian por URL desde `src/lib/catalog-config.ts`.
+
+---
+
+## Publicar en internet
+
+La guía completa, paso a paso, está en **[`DEPLOY.md`](DEPLOY.md)**.
+
+Resumen: la base de datos en Neon o Supabase (plan gratuito) + el despliegue
+automático en Vercel. Cada `git push` a `main` publica el sitio.
+
+```
+GitHub ──push──▶ Vercel ──build──▶ hilomio-memoria.vercel.app
+                                     │
+                                     └──DATABASE_URL──▶ Neon / Supabase
+```
+
+Lo único que hay que tener listo antes del primer despliegue:
+
+| Variable | Dónde se saca |
+|---|---|
+| `DATABASE_URL` | Panel de Neon o Supabase → *Connection string* |
+| `NEXT_PUBLIC_SITE_URL` | La URL que te asigne Vercel |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Tu número, solo dígitos con clave de país |
+| `ADMIN_PASSWORD` | La que tú elijas para entrar a `/admin` |
 
 ---
 
