@@ -150,7 +150,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         </section>
 
         <section className="admin-section" id="productos">
-          <div className="admin-section__heading"><h2>Productos e inventario</h2><p>Edita precio, existencias y destacados. Los cambios se reflejan de inmediato en la tienda.</p></div>
+          <div className="admin-section__heading"><h2>Productos e inventario</h2><p>Edita precio, existencias, destacados y el contenido de cada pieza. Los cambios se reflejan de inmediato en la tienda.</p></div>
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead><tr><th>Producto</th><th>Categoría</th><th>Precio (MXN)</th><th>Inventario</th><th>Destacado</th><th /></tr></thead>
@@ -167,6 +167,40 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                         <label className="admin-check"><input name="featured" type="checkbox" defaultChecked={product.featured} /> Destacado</label>
                         <button type="submit" className="button button--ghost">Guardar</button>
                       </form>
+                      <details className="admin-product-editor">
+                        <summary>Editar contenido</summary>
+                        <form className="admin-product-form" action={updateProductAction}>
+                          <input type="hidden" name="productId" value={product.id} />
+                          <input type="hidden" name="price" value={product.price} />
+                          <input type="hidden" name="stock" value={product.stock} />
+                          <input type="hidden" name="featured" value={product.featured ? "on" : ""} />
+                          <label className="form-field form-field--full">
+                            <span>Nombre</span>
+                            <input name="name" defaultValue={product.name} maxLength={180} />
+                          </label>
+                          <label className="form-field form-field--full">
+                            <span>Descripción corta</span>
+                            <input name="shortDescription" defaultValue={product.shortDescription} maxLength={280} />
+                          </label>
+                          <label className="form-field form-field--full">
+                            <span>Descripción</span>
+                            <textarea name="description" rows={3} defaultValue={product.description} />
+                          </label>
+                          <label className="form-field form-field--full">
+                            <span>Historia de la pieza</span>
+                            <textarea name="story" rows={2} defaultValue={product.story} />
+                          </label>
+                          <label className="form-field">
+                            <span>Etiqueta</span>
+                            <input name="badge" defaultValue={product.badge ?? ""} maxLength={80} placeholder="Sin etiqueta" />
+                          </label>
+                          <label className="form-field">
+                            <span>Tiempo de elaboración</span>
+                            <input name="leadTime" defaultValue={product.leadTime} maxLength={120} />
+                          </label>
+                          <button type="submit" className="button button--primary">Guardar contenido</button>
+                        </form>
+                      </details>
                     </td>
                   </tr>
                 ))}

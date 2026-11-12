@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { brand, categories, whatsappLink } from "@/lib/catalog-config";
+import { brand, whatsappLink } from "@/lib/catalog-config";
+import { collections } from "@/lib/collections";
 
 export function SiteFooter() {
   return (
@@ -20,9 +21,11 @@ export function SiteFooter() {
         </div>
         <div className="footer-links-column">
           <span className="footer-heading">Joyería</span>
-          {categories.map((category) => (
-            <Link key={category.slug} href={`/catalogo?categoria=${category.slug}`}>{category.name}</Link>
+          <Link href="/colecciones">Todas las colecciones</Link>
+          {collections.map((collection) => (
+            <Link key={collection.slug} href={`/colecciones/${collection.slug}`}>{collection.name}</Link>
           ))}
+          <Link href="/catalogo">Ver todo el catálogo</Link>
         </div>
         <div className="footer-links-column">
           <span className="footer-heading">MEMORIA</span>

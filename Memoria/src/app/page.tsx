@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { ProductGrid } from "@/components/product-grid";
 import { brand, categories, whatsappLink } from "@/lib/catalog-config";
-import { getFeaturedProducts, getRecentReviews } from "@/lib/catalog";
+import { collectionNamesInCatalog } from "@/lib/collections";
+import { getCatalog, getFeaturedProducts, getRecentReviews } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,12 @@ const serviceCards = [
 ];
 
 export default async function HomePage() {
-  const [featured, testimonials] = await Promise.all([getFeaturedProducts(8), getRecentReviews(3)]);
+  const [featured, testimonials, catalog] = await Promise.all([
+    getFeaturedProducts(8),
+    getRecentReviews(3),
+    getCatalog(),
+  ]);
+  const collections = collectionNamesInCatalog(catalog);
 
   return (
     <main>
@@ -65,6 +71,34 @@ export default async function HomePage() {
               <Image src={category.image} alt={category.name} fill sizes="(max-width: 700px) 50vw, 25vw" />
               <span className="category-card__index">0{index + 1}</span>
               <span className="category-card__label"><strong>{category.name}</strong><span>{category.blurb}</span></span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="section container" id="colecciones">
+        <div className="section-heading section-heading--split">
+          <div>
+            <span className="eyebrow">Colecciones</span>
+            <h2>Cada pieza cuenta <em>algo distinto.</em></h2>
+            <p className="section-intro">
+              Los básicos que siempre usas, los dorados que combinan en capas, las
+              piedras naturales y los grabados con tu texto.
+            </p>
+          </div>
+          <Link href="/colecciones" className="text-link">Ver todas las colecciones <span aria-hidden="true">→</span></Link>
+        </div>
+        <div className="collection-index collection-index--home">
+          {collections.map((collection, index) => (
+            <Link className="collection-index__card" href={`/colecciones/${collection.slug}`} key={collection.slug}>
+              <span className="collection-index__image">
+                <Image src={collection.image} alt={`Colección ${collection.name}`} fill sizes="(max-width: 700px) 100vw, 40vw" />
+              </span>
+              <span className="collection-index__index">0{index + 1}</span>
+              <span className="collection-index__body">
+                <strong>{collection.name}</strong>
+                <span>{collection.tagline}</span>
+              </span>
             </Link>
           ))}
         </div>

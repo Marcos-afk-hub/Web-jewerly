@@ -1,5 +1,12 @@
-export const stockPhoto = (id: number, ext: "jpeg" | "png" = "jpeg") =>
-  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.${ext}?auto=compress&cs=tinysrgb&w=1200`;
+import { productImage } from "@/lib/product-images";
+
+/**
+ * Fotografía de producto.
+ *
+ * Las imágenes se sirven desde `public/images/producto/` en lugar de un CDN
+ * externo: el catálogo funciona sin conexión y sin depender de terceros.
+ */
+export const stockPhoto = (id: number, _ext?: "jpeg" | "png") => productImage(id);
 
 export const categories = [
   { slug: "collares", name: "Collares", blurb: "Para todos los días y para las fechas que importan", image: stockPhoto(29303619, "png") },

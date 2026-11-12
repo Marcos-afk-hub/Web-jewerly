@@ -7,7 +7,10 @@ import { StoreProvider } from "@/components/store-provider";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "HILO MÍO | Joyería y accesorios · Estado de México",
     template: "%s | HILO MÍO",
@@ -16,11 +19,19 @@ export const metadata: Metadata = {
     "HILO MÍO es una joyería mexicana con sede en el Estado de México: collares, pulseras, aretes, anillos, cadenas y accesorios personalizados. Conoce MEMORIA, nuestra línea que transforma fragmentos de prendas en joyería.",
   applicationName: "HILO MÍO",
   keywords: ["joyería", "Estado de México", "plata .925", "joyería personalizada", "MEMORIA", "recuerdos en joyería"],
+  alternates: { canonical: "/" },
   openGraph: {
     title: "HILO MÍO | Joyas que cuentan historias",
     description: "Joyería y accesorios con envío a todo México. Nueva línea MEMORIA: hay recuerdos que merecen acompañarnos siempre.",
     locale: "es_MX",
     type: "website",
+    url: siteUrl,
+    siteName: "HILO MÍO",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HILO MÍO | Joyas que cuentan historias",
+    description: "Joyería con envío a todo México. MEMORIA: convierte un fragmento de tu prenda en una joya.",
   },
 };
 

@@ -8,6 +8,7 @@ import { categories } from "@/lib/catalog-config";
 
 const navLinks = [
   { href: "/catalogo", label: "Joyería" },
+  { href: "/colecciones", label: "Colecciones" },
   { href: "/memoria", label: "MEMORIA", accent: true },
   { href: "/memoria/personalizar", label: "Personalizar" },
   { href: "/nosotros", label: "Nosotros" },
