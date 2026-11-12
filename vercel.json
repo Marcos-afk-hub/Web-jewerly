@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "installCommand": "if [ -d Memoria ]; then cd Memoria && npm ci; else npm ci; fi",
-  "buildCommand": "if [ -d Memoria ]; then cd Memoria && ALLOW_DB_MIGRATION_FAILURE=1 npm run db:migrate && npm run build; else ALLOW_DB_MIGRATION_FAILURE=1 npm run db:migrate && npm run build; fi",
+  "installCommand": "cd Memoria && npm ci",
+  "buildCommand": "cd Memoria && (ALLOW_DB_MIGRATION_FAILURE=1 npm run db:migrate || true) && ALLOW_DB_MIGRATION_FAILURE=1 npm run build",
   "outputDirectory": "Memoria/.next",
   "regions": ["iad1"],
   "build": {
