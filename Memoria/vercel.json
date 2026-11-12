@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "ALLOW_DB_MIGRATION_FAILURE=1 npm run db:migrate && npm run build",
   "installCommand": "npm ci",
+  "buildCommand": "ALLOW_DB_MIGRATION_FAILURE=1 npm run db:migrate && npm run build",
   "outputDirectory": ".next",
   "regions": ["iad1"],
   "build": {
