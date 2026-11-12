@@ -135,11 +135,14 @@ npm run dev        # http://localhost:3000
 ## Estructura del proyecto
 
 ```
+vercel.json                 Configuración de despliegue (rootDirectory: Memoria)
+.vercelignore               Lo que no se sube al build
 Memoria/
 ├─ drizzle/                 Migraciones SQL y metadatos de drizzle-kit
 ├─ public/images/           Fotografía editorial de la marca
 ├─ scripts/
 │  ├─ local-db.mts          PostgreSQL embebido para desarrollo
+│  ├─ migrate.mts           Aplica el esquema en producción (idempotente)
 │  └─ seed.mts              Siembra del catálogo
 ├─ src/
 │  ├─ app/                  Rutas (App Router)
