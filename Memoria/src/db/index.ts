@@ -4,8 +4,16 @@ import { Client, Pool } from "pg";
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error(
-    "DATABASE_URL es obligatoria. Copia .env.example a .env.local y define la cadena de conexión a PostgreSQL.",
+  // No se lanza aquí un error: durante el build de Vercel esta variable puede
+  // no estar disponible (por ejemplo, en el despliegue de vista previa de un
+  // PR, donde solo se aplican las variables del entorno de producción) y
+  // abortar el build dejaría el sitio sin publicar.
+  //
+  // El sitio funciona sin base de datos: el catálogo y las reseñas tienen una
+  // copia en memoria. Lo que sí falla, y con un mensaje claro, es cualquier
+  // operación que necesita la base de verdad, como registrar un pedido.
+  console.warn(
+    "DATABASE_URL no está definida. El catálogo se sirve desde la copia en memoria.",
   );
 }
 
@@ -24,7 +32,8 @@ if (!databaseUrl) {
  * `DISABLE_DB_SSL=1` o `sslmode=disable` en la URL fuerzan el modo sin TLS.
  */
 const sslForcedOff =
-  process.env.DISABLE_DB_SSL === "1" || /sslmode=disable/.test(databaseUrl);
+  process.env.DISABLE_DB_SSL === "1" ||
+  (databaseUrl ? /sslmode=disable/.test(databaseUrl) : false);
 
 let sslEnabled = !sslForcedOff;
 
@@ -36,7 +45,11 @@ const globalForDb = globalThis as typeof globalThis & {
 export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
   new Pool({
-    connectionString: databaseUrl,
+    // Si falta DATABASE_URL se usa una URL local: el pool no se abrirá nunca
+    // porque todas las consultas fallarán antes, y así el build puede
+    // completarse sin abortar.
+    connectionString:
+      databaseUrl ?? "postgresql://postgres:postgres@127.0.0.1:5432/postgres",
     ssl: sslEnabled ? { rejectUnauthorized: false } : false,
     // Evita que una consulta colgada bloquee el servidor de páginas.
     connectionTimeoutMillis: 20_000,
@@ -64,6 +77,7 @@ if (process.env.NODE_ENV !== "production") {
  */
 async function serverSupportsSsl(): Promise<boolean> {
   if (sslForcedOff) return false;
+  if (!databaseUrl) return false;
   const probe = new Client({
     connectionString: databaseUrl,
     ssl: { rejectUnauthorized: false },
