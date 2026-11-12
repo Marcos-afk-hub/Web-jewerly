@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ProductCard } from "@/components/product-card";
 import { categories, materialOptions, styleOptions } from "@/lib/catalog-config";
+import { collections } from "@/lib/collections";
 import { formatPrice } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
@@ -11,17 +12,35 @@ type ProductGridProps = {
   mode?: "featured" | "catalog";
   initialCategory?: string;
   initialQuery?: string;
+  initialCollection?: string;
 };
 
 const MAX_PRICE = 5000;
 
-export function ProductGrid({ products, mode = "featured", initialCategory, initialQuery }: ProductGridProps) {
-  const [category, setCategory] = useState(initialCategory && categories.some((item) => item.slug === initialCategory) ? initialCategory : "todas");
+export function ProductGrid({
+  products,
+  mode = "featured",
+  initialCategory,
+  initialQuery,
+  initialCollection,
+}: ProductGridProps) {
+  const [category, setCategory] = useState(
+    initialCategory && categories.some((item) => item.slug === initialCategory) ? initialCategory : "todas",
+  );
   const [query, setQuery] = useState(initialQuery ?? "");
   const [material, setMaterial] = useState("todos");
   const [style, setStyle] = useState("todos");
+  const [collection, setCollection] = useState(
+    initialCollection && collections.some((item) => item.slug === initialCollection) ? initialCollection : "todas",
+  );
   const [maxPrice, setMaxPrice] = useState(MAX_PRICE);
   const [sort, setSort] = useState("relevancia");
+
+  // Solo se ofrecen las colecciones que tienen piezas en el catálogo actual.
+  const availableCollections = useMemo(() => {
+    const names = new Set(products.map((product) => product.collectionName));
+    return collections.filter((item) => names.has(item.name));
+  }, [products]);
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("es-MX");
@@ -31,6 +50,8 @@ export function ProductGrid({ products, mode = "featured", initialCategory, init
         (category === "todas" || product.category === category) &&
         (material === "todos" || product.materialKey === material) &&
         (style === "todos" || product.style === style) &&
+        (collection === "todas" ||
+          product.collectionName === availableCollections.find((item) => item.slug === collection)?.name) &&
         product.price <= maxPrice &&
         text.includes(normalizedQuery)
       );
@@ -42,13 +63,14 @@ export function ProductGrid({ products, mode = "featured", initialCategory, init
       if (sort === "novedades") return second.id - first.id;
       return Number(second.featured) - Number(first.featured) || first.id - second.id;
     });
-  }, [category, material, maxPrice, products, query, sort, style]);
+  }, [availableCollections, category, collection, material, maxPrice, products, query, sort, style]);
 
   const resetFilters = () => {
     setCategory("todas");
     setQuery("");
     setMaterial("todos");
     setStyle("todos");
+    setCollection("todas");
     setMaxPrice(MAX_PRICE);
     setSort("relevancia");
   };
@@ -106,6 +128,15 @@ export function ProductGrid({ products, mode = "featured", initialCategory, init
               {styleOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
+          {availableCollections.length > 1 ? (
+            <label className="filter-field">
+              <span>Colección</span>
+              <select value={collection} onChange={(event) => setCollection(event.target.value)}>
+                <option value="todas">Todas las colecciones</option>
+                {availableCollections.map((item) => <option key={item.slug} value={item.slug}>{item.name}</option>)}
+              </select>
+            </label>
+          ) : null}
           <label className="filter-field filter-field--range">
             <span className="filter-field__range-label"><span>Precio máximo</span><strong>{formatPrice(maxPrice)}</strong></span>
             <input aria-label="Precio máximo" type="range" min="400" max={MAX_PRICE} step="50" value={maxPrice} onChange={(event) => setMaxPrice(Number(event.target.value))} />
@@ -120,7 +151,14 @@ export function ProductGrid({ products, mode = "featured", initialCategory, init
 
         <div className="catalog-results">
           <div className="catalog-toolbar">
-            <p><strong>{visibleProducts.length}</strong> {visibleProducts.length === 1 ? "pieza" : "piezas"}{category !== "todas" ? ` en ${categories.find((item) => item.slug === category)?.name}` : ""}</p>
+            <p>
+              <strong>{visibleProducts.length}</strong>{" "}
+              {visibleProducts.length === 1 ? "pieza" : "piezas"}
+              {category !== "todas" ? ` en ${categories.find((item) => item.slug === category)?.name}` : ""}
+              {collection !== "todas"
+                ? ` · ${availableCollections.find((item) => item.slug === collection)?.name}`
+                : ""}
+            </p>
             <label className="sort-select">
               <span>Ordenar:</span>
               <select value={sort} onChange={(event) => setSort(event.target.value)}>

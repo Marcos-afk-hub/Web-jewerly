@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { brand, stockPhoto } from "@/lib/catalog-config";
+import { generalObjectives, specificObjectives } from "@/lib/objectives";
 
 export const metadata: Metadata = {
   title: "Quiénes somos",
@@ -86,6 +87,33 @@ export default function AboutPage() {
         </div>
         <div className="about-memoria__image">
           <Image src="/images/atelier-manos.jpg" alt="Manos del taller HILO MÍO colocando un textil en una pieza MEMORIA" fill sizes="(max-width: 850px) 100vw, 45vw" />
+        </div>
+      </section>
+
+      <section className="about-objectives" id="objetivos">
+        <div className="container">
+          <div className="section-heading section-heading--split">
+            <div>
+              <span className="eyebrow">El proyecto</span>
+              <h2>Nuestros <em>objetivos.</em></h2>
+              <p className="section-intro">
+                El proyecto se sostiene sobre {generalObjectives.length} objetivos
+                generales y {specificObjectives.length} objetivos específicos, cada
+                uno con una entrega concreta detrás.
+              </p>
+            </div>
+            <Link href="/objetivos" className="text-link">
+              Ver el proyecto completo <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+          <div className="objective-cards">
+            {generalObjectives.slice(0, 3).map((objective) => (
+              <article className="objective-card" key={objective.id}>
+                <h3>{objective.title}</h3>
+                <p>{objective.text}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </main>

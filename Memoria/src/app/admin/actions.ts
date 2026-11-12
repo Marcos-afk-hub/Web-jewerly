@@ -71,12 +71,40 @@ export async function updateProductAction(formData: FormData) {
   const price = Number(formData.get("price"));
   const stock = Number(formData.get("stock"));
   const featured = formData.get("featured") === "on";
+
+  // Campos de contenido opcionales: si vienen vacíos se conservan.
+  const name = String(formData.get("name") ?? "").trim();
+  const shortDescription = String(formData.get("shortDescription") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const story = String(formData.get("story") ?? "").trim();
+  const badge = String(formData.get("badge") ?? "").trim();
+  const leadTime = String(formData.get("leadTime") ?? "").trim();
+
   if (!Number.isInteger(productId) || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
     redirect("/admin?error=producto");
   }
-  await db.update(products).set({ price: Math.round(price), stock, featured }).where(eq(products.id, productId));
+
+  const [current] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+  if (!current) redirect("/admin?error=producto");
+
+  await db
+    .update(products)
+    .set({
+      price: Math.round(price),
+      stock,
+      featured,
+      name: name || current.name,
+      shortDescription: shortDescription || current.shortDescription,
+      description: description || current.description,
+      story: story || current.story,
+      badge: badge ? badge.slice(0, 80) : null,
+      leadTime: leadTime || current.leadTime,
+    })
+    .where(eq(products.id, productId));
+
   revalidatePath("/admin");
   revalidatePath("/");
   revalidatePath("/catalogo");
+  revalidatePath(`/producto/${current.slug}`);
   redirect("/admin?ok=producto#productos");
 }
