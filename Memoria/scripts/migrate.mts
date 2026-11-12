@@ -152,6 +152,12 @@ async function main() {
     throw new Error("DATABASE_URL es obligatoria para ejecutar las migraciones.");
   }
 
+  // En Vercel, si la base no está alcanzable desde la red de build, es
+  // preferible publicar el sitio y aplicar el esquema desde otro lado
+  // (panel de Neon, un deploy manual o `npm run db:migrate` local) que
+  // dejar el despliegue entero en rojo.
+  const allowFailure = process.env.ALLOW_DB_MIGRATION_FAILURE === "1";
+
   // Las bases gestionadas (Neon, Supabase) exigen TLS; las locales no.
   // Se intenta con TLS y, si el servidor lo rechaza, se reintenta sin él.
   // `DISABLE_DB_SSL=1` o `sslmode=disable` en la URL fuerza el modo sin TLS.
@@ -165,21 +171,29 @@ async function main() {
       connectionTimeoutMillis: 20_000,
     });
 
-  let activeClient = connect(!forceNoSsl);
+  let activeClient: Client | undefined;
 
   try {
+    activeClient = connect(!forceNoSsl);
     await activeClient.connect();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!forceNoSsl && /does not support SSL/i.test(message)) {
       console.log("→ El servidor no admite TLS. Reintentando sin cifrado…");
-      activeClient = connect(false);
-      await activeClient.connect();
-    } else if (process.env.ALLOW_DB_MIGRATION_FAILURE === "1") {
-      // En Vercel, si la base no está alcanzable desde la red de build, es
-      // preferible publicar el sitio y aplicar el esquema desde otro lado
-      // (panel de Neon, un deploy manual o `npm run db:migrate` local) que
-      // dejar el despliegue entero en rojo.
+      try {
+        activeClient = connect(false);
+        await activeClient.connect();
+      } catch (retryError) {
+        const retryMessage =
+          retryError instanceof Error ? retryError.message : String(retryError);
+        if (!allowFailure) throw retryError;
+        console.warn(
+          "⚠ No se pudo conectar a la base de datos. Se continúa sin aplicar el esquema.",
+        );
+        console.warn(`  Motivo: ${retryMessage.split("\n")[0]}`);
+        process.exit(0);
+      }
+    } else if (allowFailure) {
       console.warn(
         "⚠ No se pudo conectar a la base de datos. Se continúa sin aplicar el esquema.",
       );
@@ -193,7 +207,13 @@ async function main() {
   console.log("→ Aplicando esquema…");
 
   for (const statement of statements) {
-    await activeClient.query(statement);
+    try {
+      await activeClient.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!allowFailure) throw error;
+      console.warn(`⚠ No se pudo aplicar una sentencia: ${message.split("\n")[0]}`);
+    }
   }
 
   const { rows } = await activeClient.query<{ table_name: string }>(

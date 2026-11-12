@@ -6,6 +6,11 @@
   "outputDirectory": ".next",
   "regions": ["mx1"],
   "crons": [],
+  "build": {
+    "env": {
+      "ALLOW_DB_MIGRATION_FAILURE": "1"
+    }
+  },
   "headers": [
     {
       "source": "/images/(.*)",
