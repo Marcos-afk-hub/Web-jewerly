@@ -148,15 +148,22 @@ const statements = [
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL es obligatoria para ejecutar las migraciones.");
-  }
 
   // En Vercel, si la base no está alcanzable desde la red de build, es
   // preferible publicar el sitio y aplicar el esquema desde otro lado
   // (panel de Neon, un deploy manual o `npm run db:migrate` local) que
   // dejar el despliegue entero en rojo.
   const allowFailure = process.env.ALLOW_DB_MIGRATION_FAILURE === "1";
+
+  if (!databaseUrl) {
+    if (!allowFailure) {
+      throw new Error("DATABASE_URL es obligatoria para ejecutar las migraciones.");
+    }
+    console.warn(
+      "⚠ DATABASE_URL no está definida. Se continúa sin aplicar el esquema.",
+    );
+    process.exit(0);
+  }
 
   // Las bases gestionadas (Neon, Supabase) exigen TLS; las locales no.
   // Se intenta con TLS y, si el servidor lo rechaza, se reintenta sin él.

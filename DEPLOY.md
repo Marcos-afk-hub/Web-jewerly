@@ -101,10 +101,15 @@ Si no hay errores, tu base de datos está lista.
 3. Cuando pregunte por el **Root Directory**, **déjalo vacío**.
 
    > La app de Next.js vive en `Memoria/`, pero el repositorio incluye un
-   > `vercel.json` en la raíz que declara `"rootDirectory": "Memoria"`. Vercel
-   > lo lee automáticamente, así que no hay que configurar nada a mano.
-   > Si lo rellenas con `Memoria`, la ruta se duplica (`Memoria/Memoria`) y el
-   > build falla.
+   > `vercel.json` en la raíz que ya se encarga de entrar en esa carpeta:
+   > el `installCommand` y el `buildCommand` empiezan con
+   > `if [ -d Memoria ]; then cd Memoria && …`, y el `outputDirectory`
+   > apunta a `Memoria/.next`.
+   >
+   > **No escribas `Memoria` en ese campo.** El *Root Directory* es un ajuste
+   > del panel de Vercel, **no** una propiedad del `vercel.json`; y si lo
+   > rellenas, Vercel entra en `Memoria/` y el `vercel.json` de la raíz deja
+   > de leerse.
 
 4. En **Framework Preset** deja **Next.js** y el detector automático de
    dependencias.
@@ -360,9 +365,22 @@ npx vercel inspect dpl_XXXXXXXX --logs
 ### El build falla y el log dice que no encuentra `package.json`
 
 El **Root Directory** del proyecto en Vercel debe estar **vacío**. El
-repositorio ya incluye un `vercel.json` en la raíz que declara
-`"rootDirectory": "Memoria"`. Si en el panel escribes `Memoria`, la ruta se
-duplica (`Memoria/Memoria`) y Vercel no encuentra nada.
+repositorio ya incluye un `vercel.json` en la raíz que entra en `Memoria/`
+por su cuenta. Si en el panel escribes `Memoria`, la ruta se duplica
+(`Memoria/Memoria`) y Vercel no encuentra nada.
+
+### «should NOT have additional property 'rootDirectory'»
+
+`rootDirectory` **no** es una propiedad válida del `vercel.json`: es un
+ajuste del panel de Vercel (Settings → General → Root Directory). Escribirlo
+en el archivo hace que Vercel rechace la configuración entera.
+
+### «Invalid region selector: "mx1"»
+
+Vercel **no tiene una región en México**. Los códigos válidos son, entre
+otros: `iad1` (Washington D.C., el default), `sfo1`, `gru1` (São Paulo),
+`cle1`, `cdg1`, `fra1`, `hnd1`. Este proyecto usa `iad1`, que además es la
+región donde está Neon por defecto.
 
 ### Aparecen dos deployments en cada push
 
