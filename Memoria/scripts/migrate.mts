@@ -166,7 +166,15 @@ async function main() {
   }
 
   // Las bases gestionadas (Neon, Supabase) exigen TLS; las locales no.
-  // Se intenta con TLS y, si el servidor lo rechaza, se reintenta sin él.
+  // Se intenta con TLS y, si el servidor rechaza la conexión, se reintenta
+  // sin él.
+  //
+  // El mensaje de error cambia según el servidor ("does not support SSL",
+  // "SSL is not enabled on this endpoint", "server does not support SSL
+  // connections"…), así que no se busca una frase concreta: ante cualquier
+  // fallo de conexión se reintenta una vez sin cifrado. Si el servidor de
+  // verdad exige TLS, ese reintento también fallará y se Informará del motivo.
+  //
   // `DISABLE_DB_SSL=1` o `sslmode=disable` en la URL fuerza el modo sin TLS.
   const forceNoSsl =
     process.env.DISABLE_DB_SSL === "1" || /sslmode=disable/.test(databaseUrl);
@@ -178,37 +186,41 @@ async function main() {
       connectionTimeoutMillis: 20_000,
     });
 
-  let activeClient: Client | undefined;
+  async function openConnection(): Promise<Client> {
+    const client = connect(!forceNoSsl);
+    try {
+      await client.connect();
+      return client;
+    } catch (error) {
+      await client.end().catch(() => {});
+      if (forceNoSsl) throw error;
+
+      console.log("→ No se pudo conectar con TLS. Reintentando sin cifrado…");
+      const fallback = connect(false);
+      try {
+        await fallback.connect();
+        return fallback;
+      } catch (retryError) {
+        await fallback.end().catch(() => {});
+        // El error más informativo es el del primer intento con TLS: si el
+        // servidor exige cifrado, ahí está la causa real.
+        throw error;
+      }
+    }
+  }
+
+  let activeClient: Client;
 
   try {
-    activeClient = connect(!forceNoSsl);
-    await activeClient.connect();
+    activeClient = await openConnection();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (!forceNoSsl && /does not support SSL/i.test(message)) {
-      console.log("→ El servidor no admite TLS. Reintentando sin cifrado…");
-      try {
-        activeClient = connect(false);
-        await activeClient.connect();
-      } catch (retryError) {
-        const retryMessage =
-          retryError instanceof Error ? retryError.message : String(retryError);
-        if (!allowFailure) throw retryError;
-        console.warn(
-          "⚠ No se pudo conectar a la base de datos. Se continúa sin aplicar el esquema.",
-        );
-        console.warn(`  Motivo: ${retryMessage.split("\n")[0]}`);
-        process.exit(0);
-      }
-    } else if (allowFailure) {
-      console.warn(
-        "⚠ No se pudo conectar a la base de datos. Se continúa sin aplicar el esquema.",
-      );
-      console.warn(`  Motivo: ${message.split("\n")[0]}`);
-      process.exit(0);
-    } else {
-      throw error;
-    }
+    if (!allowFailure) throw error;
+    console.warn(
+      "⚠ No se pudo conectar a la base de datos. Se continúa sin aplicar el esquema.",
+    );
+    console.warn(`  Motivo: ${message.split("\n")[0]}`);
+    process.exit(0);
   }
 
   console.log("→ Aplicando esquema…");
@@ -223,14 +235,34 @@ async function main() {
     }
   }
 
-  const { rows } = await activeClient.query<{ table_name: string }>(
-    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
-  );
-  console.log("✓ Esquema aplicado. Tablas:", rows.map((row) => row.table_name).join(", "));
-  await activeClient.end();
+  // Esta consulta es solo informativa (para mostrar qué tablas quedaron), así
+  // que si falla no debe tumbar el despliegue: el esquema ya se aplicó.
+  try {
+    const { rows } = await activeClient.query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
+    );
+    console.log("✓ Esquema aplicado. Tablas:", rows.map((row) => row.table_name).join(", "));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!allowFailure) throw error;
+    console.warn(`⚠ No se pudo leer la lista de tablas: ${message.split("\n")[0]}`);
+  }
+
+  await activeClient.end().catch(() => {});
 }
 
 main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  // Con ALLOW_DB_MIGRATION_FAILURE=1, este script nunca debe tumbar el
+  // despliegue: el sitio funciona con el catálogo en memoria y el esquema se
+  // puede aplicar después desde el panel de Neon o desde tu máquina.
+  if (process.env.ALLOW_DB_MIGRATION_FAILURE === "1") {
+    console.warn("⚠ No se pudo aplicar el esquema. Se continúa con el despliegue.");
+    console.warn(`  Motivo: ${message.split("\n")[0]}`);
+    process.exit(0);
+  }
+
   console.error("✗ Error aplicando el esquema:", error);
   process.exit(1);
 });
