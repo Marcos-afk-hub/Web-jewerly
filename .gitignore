@@ -1,0 +1,24 @@
+# Archivos que Vercel no necesita subir al build.
+# El .gitignore de Memoria/ se aplica dentro de esa carpeta; este cubre la
+# raíz del repositorio.
+
+# Material de trabajo: candidatos de fotografía descartados. Las fotos que
+# sí usa el sitio viven en Memoria/public/images/.
+image-search/
+
+# Dependencias y artefactos de compilación.
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+
+# Variables de entorno: nunca deben desplegarse.
+.env
+.env.local
+.env.*.local
+
+# Logs y archivos del sistema.
+*.log
+.DS_Store

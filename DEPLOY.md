@@ -98,14 +98,18 @@ Si no hay errores, tu base de datos está lista.
 
 1. Entra en <https://vercel.com/signup> y crea una cuenta (puedes usar GitHub).
 2. **Add New… → Project** e importa el repositorio `Marcos-afk-hub/Web-jewerly`.
-3. Cuando pregunte por el **Root Directory**, escribe:
+3. Cuando pregunte por el **Root Directory**, **déjalo vacío**.
 
-   ```
-   Memoria
-   ```
-
-   > Es importante: la app de Next.js vive en `Memoria/`, no en la raíz del
-   > repositorio.
+   > La app de Next.js vive en `Memoria/`, pero el repositorio incluye un
+   > `vercel.json` en la raíz que ya se encarga de entrar en esa carpeta:
+   > el `installCommand` y el `buildCommand` empiezan con
+   > `if [ -d Memoria ]; then cd Memoria && …`, y el `outputDirectory`
+   > apunta a `Memoria/.next`.
+   >
+   > **No escribas `Memoria` en ese campo.** El *Root Directory* es un ajuste
+   > del panel de Vercel, **no** una propiedad del `vercel.json`; y si lo
+   > rellenas, Vercel entra en `Memoria/` y el `vercel.json` de la raíz deja
+   > de leerse.
 
 4. En **Framework Preset** deja **Next.js** y el detector automático de
    dependencias.
@@ -124,6 +128,13 @@ En el paso de **Environment Variables** agrega:
 > **Ojo con `NEXT_PUBLIC_*`:** esas variables se incrustan en el JavaScript que
 > se envía al navegador. Nunca pongas ahí una contraseña. `ADMIN_PASSWORD` y
 > `DATABASE_URL` no llevan el prefijo, así que se quedan en el servidor.
+
+> **Las variables hay que ponerlas en los tres entornos.** En el panel de
+> Vercel, arriba del editor de variables, hay un desplegable con
+> *Production*, *Preview* y *Development*. Si `DATABASE_URL` solo está en
+> *Production*, el despliegue de vista previa de un PR se construye sin ella.
+> El sitio se publica igual (el catálogo tiene una copia en memoria), pero
+> conviene tenerla en los tres para que las pruebas se parezcan a producción.
 
 ### 2.3 Desplegar
 
@@ -185,6 +196,31 @@ consecuencias:
 El sitio ya está preparado para esto: cuando la base no responde, sirve el
 catálogo desde una copia en memoria y no se cae. El pedido, en cambio, sí
 necesita la base — para eso está el plan pagado, que no se suspende.
+
+### El cifrado TLS se negocia solo
+
+Neon exige TLS, pero un PostgreSQL local no lo admite. Por eso el pool de
+`src/db/index.ts` **sondea** el servidor al arrancar:
+
+1. Abre una conexión de comprobación con cifrado.
+2. Si el servidor la acepta, todo sigue con TLS (es el caso de Neon).
+3. Si el servidor dice que no admite SSL, el mismo pool se reconfigura sin
+   cifrado y el sitio continúa con normalidad.
+
+El sondeo se hace **una sola vez** y con una conexión aparte, que se cierra
+al terminar. Si alguna vez hay que forzar el modo sin cifrado:
+
+```bash
+# En .env.local o en las variables de Vercel
+DISABLE_DB_SSL=1
+```
+
+También funciona añadir `sslmode=disable` al final de la `DATABASE_URL`.
+
+> La negociación se hace **reconfigurando** el pool existente, nunca
+> sustituyéndolo. Si se creara un pool nuevo, las instancias de Drizzle ya
+> importadas quedarían apuntando al pool anterior y toda consulta fallaría
+> con `Cannot use a pool after calling end on the pool`.
 
 ### Si el build falla al aplicar el esquema
 
@@ -309,11 +345,81 @@ pg_dump "$DATABASE_URL" > respaldo-$(date +%Y-%m-%d).sql
 
 ## Problemas frecuentes
 
+### Cómo leer el log de un build fallido en Vercel
+
+Es el primer paso cuando el check de GitHub sale en rojo:
+
+1. Abre el panel de Vercel → pestaña **Deployments**.
+2. El deployment fallido es el de arriba. Ábrelo.
+3. En la derecha, busca **Build Logs** (hay que activar **Function Logs** si
+   quieres ver los logs de las funciones).
+4. Copia las líneas en rojo, sobre todo las que dicen `Error:`.
+
+Si prefieres la terminal, cada deployment da su comando exacto en la pestaña
+**Checks** de GitHub:
+
+```bash
+npx vercel inspect dpl_XXXXXXXX --logs
+```
+
+### «ERR_INVALID_URL» o «Failed to collect page data for /_not-found»
+
+La variable `NEXT_PUBLIC_SITE_URL` tiene un valor que no es una URL. Lo más
+común es que en el panel de Vercel se haya copiado el texto de ejemplo tal
+cual:
+
+```
+La URL que te asigne Vercel
+```
+
+El sitio ya no se rompe por eso: la URL se valida y, si no es válida, se usa
+una de reserva. Pero **conviene corregirla** en
+*Settings → Environment Variables*, porque de ahí salen las URLs del sitemap,
+de `robots.txt` y las etiquetas para compartir en redes.
+
+El formato correcto es el dominio completo, sin barra final:
+
+```
+https://tu-sitio.vercel.app
+```
+
+### El build falla y el log dice que no encuentra `package.json`
+
+El **Root Directory** del proyecto en Vercel debe estar **vacío**. El
+repositorio ya incluye un `vercel.json` en la raíz que entra en `Memoria/`
+por su cuenta. Si en el panel escribes `Memoria`, la ruta se duplica
+(`Memoria/Memoria`) y Vercel no encuentra nada.
+
+### «should NOT have additional property 'rootDirectory'»
+
+`rootDirectory` **no** es una propiedad válida del `vercel.json`: es un
+ajuste del panel de Vercel (Settings → General → Root Directory). Escribirlo
+en el archivo hace que Vercel rechace la configuración entera.
+
+### «Invalid region selector: "mx1"»
+
+Vercel **no tiene una región en México**. Los códigos válidos son, entre
+otros: `iad1` (Washington D.C., el default), `sfo1`, `gru1` (São Paulo),
+`cle1`, `cdg1`, `fra1`, `hnd1`. Este proyecto usa `iad1`, que además es la
+región donde está Neon por defecto.
+
+### Aparecen dos deployments en cada push
+
+Es que hay **dos proyectos de Vercel** conectados al mismo repositorio
+(por ejemplo `web-jewerly` y `web-jewerly-9n9g`). En
+**Settings → Git** de cada proyecto puedes desconectar el que no uses, o en
+**Project Settings** revisar que los dos apunten al mismo repositorio con
+la misma configuración. Con un solo proyecto hay un solo deployment.
+
 ### «DATABASE_URL es obligatoria»
 
 La variable no llegó al entorno de Vercel. Revisa que la hayas agregado en
 **Settings → Environment Variables** para los tres entornos (Production,
 Preview, Development), y recuerda que las variables se leen al desplegar.
+
+> Si el mensaje sale **durante el build**, casi siempre es que la variable
+> solo está en *Production* y el deployment de vista previa del PR se
+> construye sin ella. Agrégala también en *Preview* y *Development*.
 
 ### «Invalid src prop … hostname is not configured»
 
